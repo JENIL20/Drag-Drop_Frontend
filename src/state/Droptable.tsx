@@ -824,16 +824,19 @@ const DropTable: React.FC = () => {
     doc.save(`${data.FieldName}.pdf`); // Save the generated PDF
   }
   const exportReport = async () => {
-    console.log(droppedFields[activeTab - 1]);
-    const filteredData = filterAndUndefineFields(droppedFields[activeTab - 1]?.FieldData, droppedFields[activeTab - 1]?.FieldValue);
-    const data = {
-      FieldID: droppedFields[activeTab - 1].FieldID,
-      FieldName: droppedFields[activeTab - 1].FieldName,
-      FieldValue: droppedFields[activeTab - 1].FieldValue,
-      FieldData: filteredData
+    if (activeTab) {
+      const filteredData = filterAndUndefineFields(droppedFields[activeTab - 1]?.FieldData, droppedFields[activeTab - 1]?.FieldValue);
+      const data = {
+        FieldID: droppedFields[activeTab - 1].FieldID,
+        FieldName: droppedFields[activeTab - 1].FieldName,
+        FieldValue: droppedFields[activeTab - 1].FieldValue,
+        FieldData: filteredData
+      }
+      generatePdf(data)
+      const temp = await axios.post("http://localhost:5000/report", { data })
+    } else {
+      alert("Drop some fields to download")
     }
-    generatePdf(data)
-    // const temp = await axios.post("http://localhost:5000/report", { data })
   }
   function filterAndUndefineFields(fieldData, fieldValue) {
     const allowedFields = fieldValue?.map(field => field.id);
@@ -1240,7 +1243,7 @@ const DropTable: React.FC = () => {
           />
         )}
       </div>
-    </DndProvider>
+    </DndProvider >
   );
 };
 
