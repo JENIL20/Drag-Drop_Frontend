@@ -1,0 +1,437 @@
+import React, { useState, useCallback } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import Field from './Field';
+import Accordion from './Accordion';
+import DroppableColumn from './DroppableColumn';
+import EditModal from './EditModal';
+import DeleteModal from './DeleteModal';
+import DataTable from './DataTable';
+
+
+interface FieldValue {
+  id: number | string;
+  label: string;
+}
+
+interface DataSection {
+  FieldName: string;
+  FieldValue: FieldValue[];
+  FieldData: any[];
+}
+
+const sampleData: DataSection[] = [
+  {
+    FieldName: "User fields",
+    FieldValue: [
+      { id: "id", label: "ID" },
+      { id: "name", label: "Name" },
+      { id: "age", label: "Age" },
+    ],
+    FieldData: [
+      { id: 1, name: "John Doe", age: 25 },
+      { id: 2, name: "Jane Smith", age: 30 },
+      { id: 3, name: "Mike Johnson", age: 35 },
+    ]
+  },
+  {
+    FieldName: "Food fields",
+    FieldValue: [
+      { id: 1, label: "Beer" },
+      { id: 2, label: "vodka" },
+      { id: 3, label: "desi" },
+    ],
+    FieldData: [
+      { 1: "beer", 2: "vod", 3: "sadu" },
+      { 1: "corona", 2: "vodka", 3: "thodu kadak" },
+      { 1: "blenders pride ", 2: "wiskey", 3: "vadharekadak" },
+    ]
+  },
+  {
+    FieldName: "Incident fields",
+    FieldValue: [
+      { id: "contributingBehavior", label: "Contributing Behavior" },
+      { id: "contributingCondition", label: "Contributing Condition" },
+      { id: "creator", label: "Creator" },
+      { id: "incidentName", label: "Incident Name" },
+    ],
+    FieldData: [
+      { contributingBehavior: "Aggressive", contributingCondition: "Stress", creator: "Admin", incidentName: "Accident" },
+      { contributingBehavior: "Calm", contributingCondition: "Normal", creator: "Admin", incidentName: "Meeting" },
+      { contributingBehavior: "Neutral", contributingCondition: "Neutral", creator: "Manager", incidentName: "Workshop" },
+    ]
+  },
+
+
+];
+
+const BankListing: React.FC = () => {
+  // ... (rest of the code remains unchanged)
+  const [availableFields, setAvailableFields] = useState<{ [key: string]: FieldValue[] }>(() => {
+    const fields: { [key: string]: FieldValue[] } = {};
+    sampleData.forEach(section => {
+      fields[section.FieldName] = [...section.FieldValue];
+    });
+    return fields;
+  });
+
+  const [droppedFields, setDroppedFields] = useState<{ [key: string]: FieldValue[] }>(() => {
+    const fields: { [key: string]: FieldValue[] } = {};
+    sampleData.forEach(section => {
+      fields[section.FieldName] = [];
+    });
+    return fields;
+  });
+
+  const [activeTab, setActiveTab] = useState<string>(sampleData[0].FieldName);
+  const [selectedFields, setSelectedFields] = useState<{ [key: string]: Set<string | number> }>(() => {
+    const selected: { [key: string]: Set<string | number> } = {};
+    sampleData.forEach(section => {
+      selected[section.FieldName] = new Set();
+    });
+    return selected;
+  });
+  const [isEditButtonVisible, setisEditButtonVisible] = useState(true)
+  const [editFieldId, setEditFieldId] = useState<string | number | null>(null);
+  const [editFieldValue, setEditFieldValue] = useState<string>("");
+  const [originalFieldValue, setOriginalFieldValue] = useState<string>("");
+  const [deleteModalOpen, setdeleteModalOpen] = useState<boolean>(false)
+  // Modified handleDropField to handle the sectionName from the drag source
+  const handleDropField = useCallback((field: FieldValue, sourceSection: string) => {
+    // Find the correct section for the field
+    const sectionName = Object.keys(availableFields).find(key =>
+      availableFields[key].some(f => f.id === field.id)
+    ) || sourceSection;
+
+    if (!sectionName) return;
+
+    setAvailableFields(prev => ({
+      ...prev,
+      [sectionName]: prev[sectionName].filter(f => f.id !== field.id)
+    }));
+
+    setDroppedFields(prev => ({
+      ...prev,
+      [sectionName]: [...(prev[sectionName] || []), field]
+    }));
+
+    setActiveTab(sectionName);
+  }, [availableFields]);
+  const findField = (val: FieldValue) => {
+    let temp = sampleData.find((item) => item.FieldName == activeTab).FieldValue.find((it) => it.id == val.id)
+    // console.log("temp", temp);
+    return temp
+  }
+  const handleRemoveField = (field: FieldValue, sectionName: string) => {
+    // console.log("field", field);
+
+    if (!droppedFields[sectionName]) return;
+    findField(field)
+    setDroppedFields(prev => ({
+      ...prev,
+      [sectionName]: prev[sectionName].filter(f => f.id !== field.id)
+    }));
+
+    setAvailableFields(prev => ({
+      ...prev,
+      [sectionName]: [...(prev[sectionName] || []), findField(field)]
+    }));
+  };
+
+  const bulkRemoveFields = (sectionName: string) => {
+
+    const temp = sampleData.find((it) => it.FieldName === activeTab).FieldValue
+
+    setAvailableFields(prev => ({
+      ...prev,
+      [sectionName]: temp
+    }));
+    setDroppedFields(prev => ({
+      ...prev,
+      [sectionName]: []
+    }));
+    setdeleteModalOpen(false);
+    console.log("set modal open ", deleteModalOpen);
+
+    // if (!selectedFields[sectionName]) return;
+    // console.log(selectedFields[sectionName]);
+
+    // const selectedSet = selectedFields[sectionName];
+    // const fieldsToRemove = droppedFields[sectionName].filter(field => selectedSet.has(field.id));
+
+    // setDroppedFields(prev => ({
+    //   ...prev,
+    //   [sectionName]: prev[sectionName].filter(field => !selectedSet.has(field.id))
+    // }));
+    // const temp = sampleData.filter((it) => it.FieldName === activeTab)[0].FieldValue.filter((item) => selectedSet.has(item.id))
+    // console.log("maping==", temp);
+
+    // setAvailableFields(prev => ({
+    //   ...prev,
+    //   [sectionName]: [...(prev[sectionName] || []), ...temp]
+    // }));
+
+    // setSelectedFields(prev => ({
+    //   ...prev,
+    //   [sectionName]: new Set()
+    // }));
+  };
+
+  const handleCheckboxChange = (fieldId: string | number, sectionName: string) => {
+    if (!selectedFields[sectionName]) return;
+
+    setSelectedFields(prev => {
+      const updated = new Set(prev[sectionName]);
+      if (updated.has(fieldId)) {
+        updated.delete(fieldId);
+      } else {
+        updated.add(fieldId);
+      }
+      return {
+        ...prev,
+        [sectionName]: updated
+      };
+    });
+  };
+
+  const handleEditFields = (field: FieldValue, sectionName: string) => {
+
+    setEditFieldId(field.id);
+    setEditFieldValue(field.label);
+    setOriginalFieldValue(field.label);
+    // if (!selectedFields[sectionName] || !droppedFields[sectionName]) return;
+
+    // const selectedFieldIds = Array.from(selectedFields[activeTab]);
+    // if (selectedFieldIds.length === 1) {
+    //   const fieldId = selectedFieldIds[0];
+    //   const fieldToEdit = droppedFields[activeTab].find(field => field.id === fieldId);
+    //   if (fieldToEdit) {
+    //     setEditFieldId(fieldId);
+    //     setEditFieldValue(fieldToEdit.label);
+    //     setOriginalFieldValue(fieldToEdit.label);
+    //   }
+    // }
+  };
+
+  const handleEditSubmit = () => {
+    if (editFieldId === null) return;
+
+    setDroppedFields(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(sectionName => {
+        if (updated[sectionName]) {
+          updated[sectionName] = updated[sectionName].map(field =>
+            field.id === editFieldId ? { ...field, label: editFieldValue } : field
+          );
+        }
+      });
+      setisEditButtonVisible(true)
+
+      return updated;
+
+      // if (editFieldId === null) return;
+
+      // setDroppedFields(prev => {
+      // const updated = { ...prev };
+      // Object.keys(updated).forEach(sectionName => {
+      //   if (updated[sectionName]) {
+      //     updated[sectionName] = updated[sectionName].map(field =>
+      //       field.id === editFieldId ? { ...field, label: editFieldValue } : field
+      //     );
+      //   }
+      // });
+      // return updated;
+    });
+
+    setEditFieldId(null);
+    setEditFieldValue("");
+    setOriginalFieldValue("");
+  };
+  console.log("hi bhai hu map thau chu ", (sampleData.find(section => (droppedFields[section.FieldName]?.length > 0))));
+  const getDataToShow = (sectionName: string) => {
+    const section = sampleData.find(s => s.FieldName === sectionName);
+    const fields = droppedFields[sectionName];
+
+    if (!section || !fields || !fields.length) return [];
+
+    return section.FieldData.map(entry => {
+      const fieldValues: any = {};
+      fields.forEach(f => {
+        fieldValues[f.id] = entry[f.id] ?? "N/A";
+      });
+      return fieldValues;
+    });
+  };
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+const handleDragStart = (e: React.DragEvent, index: number) => {
+  setDraggedIndex(index);
+};
+
+const handleDragOver = (e: React.DragEvent) => {
+  e.preventDefault();
+};
+
+const handleDrop = (e: React.DragEvent, dropIndex: number, sectionName: string) => {
+  e.preventDefault();
+  
+  if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+  setDroppedFields(prev => {
+    const newFields = { ...prev };
+    const sectionFields = [...newFields[sectionName]];
+    const [draggedItem] = sectionFields.splice(draggedIndex, 1);
+    sectionFields.splice(dropIndex, 0, draggedItem);
+    newFields[sectionName] = sectionFields;
+    return newFields;
+  });
+  
+  setDraggedIndex(null);
+};
+  const moveField = useCallback((dragIndex, hoverIndex, sectionName) => {
+  setDroppedFields(prev => {
+    const newFields = { ...prev };
+    const sectionFields = [...newFields[sectionName]];
+    const [movedItem] = sectionFields.splice(dragIndex, 1);
+    sectionFields.splice(hoverIndex, 0, movedItem);
+    newFields[sectionName] = sectionFields;
+    return newFields;
+  });
+}, []);
+  const ItemTypes = {
+    FIELD: 'field',
+    FIELD_REORDER: 'FIELD_REORDER'
+  };
+  return (
+    <DndProvider backend={HTML5Backend}>
+
+    <div className="flex justify-between p-4 bg-gray-100 min-h-screen">
+      <div className="w-64 h-full p-4 bg-white shadow-md rounded-lg overflow-auto">
+        {sampleData.map(section => (
+          <Accordion
+            key={section.FieldName}
+            title={section.FieldName}
+            defaultOpen={false}
+            availableFields={availableFields}
+          />
+        ))}
+      </div>
+      <div className="flex-1 h-full p-4 bg-white shadow-md rounded-lg flex flex-col">
+        {(sampleData.find(section => (droppedFields[section.FieldName]?.length > 0))) ? (
+          <div className="flex justify-end mb-4 gap-3">
+            <button
+              onClick={() => setisEditButtonVisible((prev) => !prev)}
+              className="flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 shadow transition"
+            >
+              <FontAwesomeIcon icon={faEdit} className="mr-1" />
+              {isEditButtonVisible ? 'Edit' : 'Save'}
+            </button>
+            <button
+              onClick={() => setdeleteModalOpen(true)}
+              className="flex items-center px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 shadow transition"
+            >
+              <FontAwesomeIcon icon={faTrash} className="mr-1" />
+              Delete All
+            </button>
+          </div>
+        ) : (
+          <p className="text-gray-500">Drop Field to build data</p>
+        )}
+     {sampleData.map(section => (
+  droppedFields[section.FieldName]?.map((field, index) => (
+    <div 
+      key={field.id} 
+      className={`flex items-center mb-2 ${draggedIndex === index ? 'opacity-50' : ''}`}
+      draggable
+      onDragStart={(e) => handleDragStart(e, index)}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, index, section.FieldName)}
+    >
+      <div className="flex items-center w-full cursor-move">
+        <span className="mr-2 text-gray-400 select-none">⋮⋮</span>
+        <Field
+          handleEditFields={handleEditFields}
+          field={field}
+          sectionName={section.FieldName}
+          columnType="second"
+          isEditButtonVisible={isEditButtonVisible}
+          onRemove={() => handleRemoveField(field, section.FieldName)}
+        />
+      </div>
+    </div>
+  ))
+))}
+
+        <DroppableColumn
+          columnId="Dropped Fields"
+          onDropField={handleDropField}
+          canDrop={(item) => {
+            return !Object.values(droppedFields).some(fields =>
+              fields.some(f => f.id === item.id)
+            );
+          }}
+        />
+      </div>
+      
+      <div className="flex-1 h-full p-4 bg-white shadow-md rounded-lg flex flex-col overflow-auto">
+        <h3 className="font-bold text-xl mb-4">Data Display</h3>
+        <div className="flex space-x-4 mb-4">
+          {sampleData.map(section => (
+            droppedFields[section.FieldName]?.length > 0 && (
+              <button
+                key={section.FieldName}
+                className={`tab ${
+                  activeTab === section.FieldName
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 hover:bg-gray-300"
+                } px-4 py-2 rounded transition`}
+                onClick={() => setActiveTab(section.FieldName)}
+              >
+                {section.FieldName}
+              </button>
+            )
+          ))}
+        </div>
+  
+        {sampleData.map((section) => (
+            activeTab === section.FieldName && droppedFields[section.FieldName]?.length > 0 && (
+              <DataTable // Use the new DataTable component
+                key={section.FieldName}
+                fields={droppedFields[section.FieldName]}
+                data={getDataToShow(section.FieldName)}
+              />
+            )
+          ))}
+      </div>
+    </div>
+  
+    {editFieldId && (
+      <EditModal
+        currentValue={originalFieldValue}
+        isOpen={!!editFieldId}
+        value={editFieldValue}
+        onChange={setEditFieldValue}
+        onSave={handleEditSubmit}
+        onCancel={() => {
+          setEditFieldId(null);
+          setEditFieldValue("");
+          setOriginalFieldValue("");
+        }}
+      />
+    )}
+    {deleteModalOpen && (
+      <DeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => setdeleteModalOpen(false)}
+        onConfirm={() => bulkRemoveFields(activeTab)}
+      />
+    )}
+  </DndProvider>
+  
+  
+  );
+};
+
+export default BankListing;
